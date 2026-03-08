@@ -1,0 +1,102 @@
+---
+title: "PresentableData"
+author: "Eduardo Montes"
+date: "2026-03-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Link to the dataset on kaggle:https://www.kaggle.com/datasets/datasnaek/chess
+
+```{r}
+library(tidyverse)
+```
+```{r}
+games <- read_csv("games.csv")
+```
+This allows us to see what are the variable and variable types that are in this dataset.
+```{r}
+str(games)
+```
+We are looking at 9 categorical and 6 numerical variable.
+id, white_id, black_id are ordinal variables
+victory_status, increment_code, moves, opening_eco, opening_name are nominal variables
+winner is a binary variable
+
+created_at, last_move_at, turns, white_rating, black_rating are continuous variables
+
+opening_ply is a discrete variable.
+
+I gained a lot of interest in seeing what kind of data can be pulled from chess matches, especially how does starting first effect the outcome of each match. I also want to see if the number of turns it takes for a match to end is linked the average of the players in each match. A basic summary of the data set is that we are seeing how 20000 matches were played. The dataset provides the the ratings of the white pieces and black pieces, the number of turns taken in each game, the result of the games and their winners, and we get to see information on the opening plays like the names and how many moves it takes to complete the opening play.
+
+
+This code below begins manipulating the data by focusing on the winners of the matches and leaving out the games the ended in draws. It also counts how many times the white pieces won and how many times the black pieces have won and then calculating the avgerage rating in between the players in each match.
+```{r}
+games_clean <- games %>%
+  filter(winner %in% c("white","black")) %>%
+  mutate(
+    white_win = ifelse(winner == "white", 1, 0),
+    black_win = ifelse(winner == "black", 1, 0),
+    
+    # rating difference
+    rating_diff = white_rating - black_rating,
+    
+    # average rating for the match
+    avg_rating = (white_rating + black_rating)/2
+  )
+```
+
+
+Looking at the win rate between both color pieces.
+```{r}
+games_clean %>%
+  summarize(white_win_rate = mean(white_win), black_win_rate = mean(black_win))
+```
+
+
+We can do a proportion test on winners that were white pieces to go from win rate to probablity of how often white will win.
+```{r}
+prop.test(
+  x = sum(games_clean$winner == "white"),
+  n = nrow(games_clean),
+  p = 0.5
+)
+```
+Graph to see the number of games won between players with black pieces and white pieces. White has the advantage of starting first and being able to almost dictate the pace and the space of the board with thier first move. This can force the black pieces to already begin on the back foot. This allows for the white pieces to have a higher chance at winning the match.
+```{r}
+games_clean %>%
+  count(winner) %>%
+  ggplot(aes(x = winner, y = n, fill = winner))+
+  geom_bar(stat="identity")
+```
+
+
+Graph that shows the number of turns taken in the games that have been played and the average rating between the players. Trying to find a correlation between the average rating of the players and the number turns it takes to finish their matches. Better players will not be making so many mistakes, thus lessening the amount of times a player will have to take a turn to correct their mistakes.
+```{r}
+ggplot(games_clean, aes(x = avg_rating, y = turns))+
+  geom_point(alpha = 0.3)+
+  geom_smooth(method="lm", color = "red")
+```
+
+We are looking at negative and positive correlation to see how ratings affect how many turns occur in one match. With this correlation, negative tells us that there higher rating players take less time to finish their games and positive shows that the higher players will take more time to finish their matches.
+```{r}
+cor.test(games_clean$avg_rating, games_clean$turns)
+```
+
+This linear regression model tells us the same information as the correlation a more negative linear model shows that the higher rated players will finish their matches faster.
+```{r}
+model <- lm(turns ~ avg_rating, data = games_clean)
+summary(model)
+```
+
+```{r}
+arrange(games, desc(white_rating))
+arrange(games, desc(black_rating))r
+```
+
+
+
+
